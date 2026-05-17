@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Museo de Beca y Jaretcito</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;1,400&family=Cinzel:wght@400;600&family=IM+Fell+English:ital@0;1&display=swap');
+ 
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{width:100%;height:100%;overflow:hidden;background:#0a0806;font-family:'Cormorant Garamond',Georgia,serif;touch-action:none;}
+#c{display:block;position:fixed;top:0;left:0;width:100%;height:100%;}
+ 
+/* Crosshair */
+#crosshair{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:22px;height:22px;pointer-events:none;z-index:25;}
+#crosshair::before,#crosshair::after{content:'';position:absolute;background:rgba(232,213,160,0.5);border-radius:1px;}
+#crosshair::before{width:1px;height:13px;top:50%;left:50%;transform:translate(-50%,-50%);}
+#crosshair::after{width:13px;height:1px;top:50%;left:50%;transform:translate(-50%,-50%);}
+ 
+/* ── HUD ── */
+#hud{position:fixed;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:flex-start;
+  padding:max(env(safe-area-inset-top),10px) 12px 0;pointer-events:none;z-index:20;gap:6px;}
+.hud-pill{background:rgba(10,7,4,0.9);border:1px solid rgba(180,140,60,0.45);border-radius:4px;
+  padding:5px 11px;color:#e8d5a0;font-family:'Cinzel',serif;font-size:9px;
+  letter-spacing:1.5px;text-transform:uppercase;backdrop-filter:blur(6px);white-space:nowrap;}
+#counter{background:rgba(10,7,4,0.9);border:1px solid rgba(180,140,60,0.35);border-radius:20px;
+  padding:5px 13px;font-family:'Cinzel',serif;font-size:9px;letter-spacing:2px;
+  color:rgba(200,160,60,0.8);text-transform:uppercase;backdrop-filter:blur(6px);white-space:nowrap;}
+#counter span{color:#f0d060;font-weight:600;}
+#compass{background:rgba(10,7,4,0.9);border:1px solid rgba(180,140,60,0.45);border-radius:50%;
+  width:40px;height:40px;display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  backdrop-filter:blur(6px);position:relative;}
+#compass::before{content:'N';position:absolute;top:3px;left:50%;transform:translateX(-50%);
+  color:#e85050;font-family:'Cinzel',serif;font-size:7px;font-weight:600;}
+#compass-arrow{width:0;height:0;border-left:3.5px solid transparent;border-right:3.5px solid transparent;
+  border-bottom:14px solid #e85050;position:relative;transform-origin:center 8px;transition:transform 0.08s linear;}
+ 
+/* ── Minimapa ── */
+#minimap-wrap{position:fixed;top:62px;right:12px;z-index:20;display:flex;flex-direction:column;align-items:flex-end;gap:3px;}
+#minimap-toggle{background:rgba(10,7,4,0.9);border:1px solid rgba(180,140,60,0.45);border-radius:4px;
+  padding:4px 9px;font-family:'Cinzel',serif;font-size:7.5px;letter-spacing:1px;
+  color:rgba(200,160,60,0.8);text-transform:uppercase;cursor:pointer;pointer-events:auto;
+  backdrop-filter:blur(4px);user-select:none;-webkit-user-select:none;transition:background 0.15s;}
+#minimap-toggle:active{background:rgba(160,120,50,0.25);}
+#minimap{background:rgba(4,2,1,0.97);border:1px solid rgba(180,140,60,0.45);border-radius:5px;
+  overflow:hidden;backdrop-filter:blur(8px);box-shadow:0 8px 28px rgba(0,0,0,0.8);
+  transition:all 0.3s cubic-bezier(0.16,1,0.3,1);pointer-events:auto;}
+#minimap.hidden{opacity:0;pointer-events:none;transform:scale(0.92) translateY(-6px);}
+#minimap canvas{display:block;}
+#map-legend{display:flex;gap:7px;padding:4px 7px 3px;background:rgba(5,3,1,0.9);
+  border-top:1px solid rgba(180,140,60,0.18);justify-content:center;flex-wrap:wrap;}
+.leg-item{display:flex;align-items:center;gap:3px;}
+.leg-dot{width:8px;height:8px;border-radius:2px;flex-shrink:0;}
+.leg-txt{font-family:'Cinzel',serif;font-size:6px;color:rgba(200,170,100,0.65);letter-spacing:0.5px;white-space:nowrap;}
+ 
+/* ── Etiqueta cuadro ── */
+#label{position:fixed;bottom:calc(158px + env(safe-area-inset-bottom,0px));left:50%;
+  transform:translateX(-50%) translateY(14px);background:rgba(8,5,2,0.97);
+  border:1px solid rgba(180,140,60,0.6);border-radius:5px;padding:11px 18px;
+  max-width:min(90vw,330px);min-width:230px;text-align:center;
+  box-shadow:0 12px 40px rgba(0,0,0,0.85);
+  opacity:0;transition:all 0.45s cubic-bezier(0.16,1,0.3,1);z-index:30;pointer-events:none;backdrop-filter:blur(10px);}
+#label.show{opacity:1;transform:translateX(-50%) translateY(0);}
+#lbl-num-tag{font-family:'Cinzel',serif;font-size:7px;color:rgba(200,160,60,0.6);letter-spacing:3px;text-transform:uppercase;margin-bottom:4px;}
+#lbl-title{color:#f0e0a0;font-family:'IM Fell English',Georgia,serif;font-size:14px;font-weight:400;font-style:italic;margin-bottom:4px;}
+#lbl-date{color:#b0986a;font-size:9.5px;font-family:'Cinzel',serif;letter-spacing:0.7px;margin-bottom:2px;}
+#lbl-author{font-family:'Cinzel',serif;font-size:7px;color:#7a6840;text-transform:uppercase;letter-spacing:1.5px;
+  border-top:1px solid rgba(180,140,60,0.2);padding-top:5px;margin-top:5px;}
+ 
+/* ── Banner de sala ── */
+#room-banner{position:fixed;top:50%;left:50%;transform:translate(-50%,calc(-50% - 60px));
+  text-align:center;pointer-events:none;z-index:22;opacity:0;transition:opacity 0.5s ease;}
+#room-banner.show{opacity:1;}
+#rbi{background:rgba(8,5,2,0.94);border:1px solid rgba(180,140,60,0.5);border-radius:3px;
+  padding:7px 20px;display:inline-block;font-family:'Cinzel',serif;font-size:10.5px;letter-spacing:3px;
+  color:#d0b870;text-transform:uppercase;box-shadow:0 4px 20px rgba(0,0,0,0.7);backdrop-filter:blur(8px);}
+#rbi small{display:block;font-size:6.5px;color:rgba(180,140,60,0.5);letter-spacing:1.5px;margin-top:2px;}
+ 
+/* ── Flecha próximo cuadro ── */
+#next-arrow{position:fixed;right:12px;bottom:calc(158px + env(safe-area-inset-bottom,0px));
+  width:50px;height:50px;background:rgba(10,7,4,0.9);
+  border:1px solid rgba(180,140,60,0.55);border-radius:50%;
+  display:flex;align-items:center;justify-content:center;flex-direction:column;
+  pointer-events:none;opacity:0;transition:opacity 0.4s;backdrop-filter:blur(6px);}
+#next-arrow.show{opacity:1;}
+#na-icon{font-size:20px;line-height:1;}
+#na-dist{font-family:'Cinzel',serif;font-size:5px;color:rgba(200,160,60,0.7);letter-spacing:0.5px;margin-top:1px;}
+ 
+/* ══════════════════════════════════════════
+   CONTROLES
+   ══════════════════════════════════════════ */
+#ctrls{position:fixed;bottom:0;left:0;right:0;
+  padding:6px 14px calc(6px + env(safe-area-inset-bottom,0px));
+  display:flex;justify-content:space-between;align-items:flex-end;z-index:40;pointer-events:none;gap:6px;}
+ 
+/* Joystick */
+#joy-wrap{display:flex;flex-direction:column;align-items:center;gap:3px;pointer-events:auto;}
+#joy-zone{width:112px;height:112px;background:rgba(10,7,4,0.56);
+  border:1px solid rgba(180,140,60,0.28);border-radius:50%;
+  position:relative;pointer-events:auto;flex-shrink:0;
+  backdrop-filter:blur(4px);touch-action:none;}
+#joy-ring{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:76%;height:76%;border:1px solid rgba(180,140,60,0.14);border-radius:50%;}
+#joy-knob{position:absolute;top:50%;left:50%;width:44px;height:44px;
+  transform:translate(-50%,-50%);
+  background:radial-gradient(circle at 35% 35%,rgba(200,160,60,0.72),rgba(100,75,22,0.92));
+  border:1px solid rgba(200,160,60,0.6);border-radius:50%;
+  box-shadow:0 3px 10px rgba(0,0,0,0.65);touch-action:none;pointer-events:none;}
+.ctrl-label{font-family:'Cinzel',serif;font-size:6.5px;letter-spacing:1px;
+  color:rgba(180,140,60,0.38);text-transform:uppercase;}
+ 
+/* D-pad */
+#dpad-wrap{display:flex;flex-direction:column;align-items:center;gap:3px;pointer-events:auto;}
+.dpad{display:grid;grid-template-columns:repeat(3,54px);grid-template-rows:repeat(2,54px);gap:5px;}
+.btn{background:rgba(14,9,5,0.86);border:1px solid rgba(160,120,50,0.5);border-radius:12px;
+  color:#cdb87a;display:flex;align-items:center;justify-content:center;font-size:20px;
+  user-select:none;-webkit-user-select:none;cursor:pointer;
+  transition:background 0.07s,transform 0.07s;
+  backdrop-filter:blur(6px);box-shadow:0 3px 10px rgba(0,0,0,0.55),inset 0 1px 0 rgba(255,255,255,0.04);
+  -webkit-touch-callout:none;touch-action:none;}
+.btn.pressed,.btn:active{background:rgba(160,120,50,0.45);transform:scale(0.88);
+  color:#fff;border-color:rgba(215,168,58,0.95);}
+#b-u{grid-column:2;grid-row:1;}
+#b-l{grid-column:1;grid-row:2;}
+#b-d{grid-column:2;grid-row:2;}
+#b-r{grid-column:3;grid-row:2;}
+ 
+/* Info panel */
+#ctrl-info{background:rgba(10,7,4,0.86);border:1px solid rgba(180,140,60,0.24);border-radius:4px;
+  padding:8px 10px;backdrop-filter:blur(4px);pointer-events:none;}
+#ctrl-info p{font-family:'Cinzel',serif;font-size:7.5px;letter-spacing:0.8px;
+  color:rgba(200,170,100,0.5);text-transform:uppercase;line-height:2;}
+#ctrl-info p b{color:rgba(240,210,130,0.75);}
+ 
+/* Responsive */
+@media (hover:hover) and (pointer:fine){
+  #joy-wrap{display:none;}
+  .dpad{grid-template-columns:repeat(3,48px);grid-template-rows:repeat(2,48px);}
+  .btn{font-size:17px;}
+}
+@media (max-width:380px){
+  .dpad{grid-template-columns:repeat(3,46px);grid-template-rows:repeat(2,46px);gap:4px;}
+  .btn{font-size:17px;border-radius:10px;}
+  #joy-zone{width:98px;height:98px;}
+  #joy-knob{width:38px;height:38px;}
+  #label{bottom:calc(148px + env(safe-area-inset-bottom,0px));padding:9px 14px;}
+  #next-arrow{bottom:calc(148px + env(safe-area-inset-bottom,0px));}
+}
+@media (max-width:340px){
+  .dpad{grid-template-columns:repeat(3,40px);grid-template-rows:repeat(2,40px);gap:3px;}
+  #joy-zone{width:86px;height:86px;}
+}
+ 
+/* ── Pantalla de bienvenida ── */
+#welcome{position:fixed;top:0;left:0;width:100%;height:100%;background:#090704;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  z-index:100;padding:18px;text-align:center;transition:opacity 1s ease;}
+#welcome-bg{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;}
+#welcome-box{max-width:420px;width:100%;border:1px solid rgba(180,140,60,0.32);
+  padding:clamp(26px,6vw,46px) clamp(16px,5vw,34px) clamp(24px,5vw,38px);
+  background:rgba(12,8,4,0.86);
+  box-shadow:0 30px 80px rgba(0,0,0,0.95),inset 0 1px 0 rgba(220,180,80,0.07);
+  border-radius:3px;position:relative;backdrop-filter:blur(14px);
+  animation:wi 1.3s cubic-bezier(0.16,1,0.3,1) both;}
+@keyframes wi{from{opacity:0;transform:translateY(26px) scale(0.97);}to{opacity:1;transform:none;}}
+#welcome-box::before{content:'';position:absolute;top:8px;left:8px;width:17px;height:17px;border-color:rgba(200,160,60,0.55);border-style:solid;border-width:1px 0 0 1px;}
+#welcome-box::after{content:'';position:absolute;bottom:8px;right:8px;width:17px;height:17px;border-color:rgba(200,160,60,0.55);border-style:solid;border-width:0 1px 1px 0;}
+.ctr{position:absolute;width:17px;height:17px;border-color:rgba(200,160,60,0.55);border-style:solid;}
+.ctr.tr{top:8px;right:8px;border-width:1px 1px 0 0;}.ctr.bl{bottom:8px;left:8px;border-width:0 0 1px 1px;}
+#welcome-icon{font-size:clamp(22px,5vw,30px);margin-bottom:12px;display:block;
+  animation:breathe 3s ease-in-out infinite;filter:drop-shadow(0 0 10px rgba(220,190,80,0.4));}
+@keyframes breathe{0%,100%{transform:scale(1);}50%{transform:scale(1.08);}}
+#welcome-sub{font-family:'Cinzel',serif;font-size:8px;letter-spacing:4px;color:rgba(200,160,60,0.55);text-transform:uppercase;margin-bottom:8px;animation:fi 1.6s .3s both;}
+#welcome h1{font-family:'IM Fell English',Georgia,serif;color:#e8d090;font-size:clamp(21px,5.5vw,29px);font-weight:400;font-style:italic;letter-spacing:1px;margin-bottom:9px;animation:fi 1.6s .5s both;line-height:1.25;}
+#welcome-div{width:44px;height:1px;background:linear-gradient(to right,transparent,rgba(200,160,60,0.65),transparent);margin:12px auto;animation:fi 1.6s .7s both;}
+#welcome p.desc{color:#9a8a6a;font-size:clamp(11.5px,3vw,13px);line-height:1.7;margin-bottom:22px;font-style:italic;animation:fi 1.6s .9s both;}
+#welcome .tip-box{background:rgba(180,140,60,0.08);border:1px solid rgba(180,140,60,0.2);border-radius:4px;padding:8px 12px;margin-bottom:20px;animation:fi 1.6s 1s both;}
+#welcome .tip-box p{font-style:normal;font-size:10px;color:rgba(200,160,60,0.65);font-family:'Cinzel',serif;letter-spacing:0.5px;line-height:1.8;margin:0;}
+@keyframes fi{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
+#enter-btn{display:inline-flex;align-items:center;gap:10px;
+  background:linear-gradient(135deg,rgba(118,88,28,0.92),rgba(82,60,16,0.97));
+  border:1px solid rgba(200,160,60,0.65);color:#e8d090;
+  padding:13px clamp(18px,5vw,34px);font-size:9.5px;letter-spacing:4px;
+  text-transform:uppercase;font-family:'Cinzel',serif;cursor:pointer;
+  box-shadow:0 6px 24px rgba(0,0,0,0.5),inset 0 1px 0 rgba(255,255,255,0.06);
+  transition:all 0.22s;border-radius:2px;animation:fi 1.6s 1.1s both;}
+#enter-btn:hover{background:linear-gradient(135deg,rgba(148,112,38,0.95),rgba(105,78,20,0.99));border-color:rgba(220,180,80,0.82);transform:translateY(-1px);}
+#enter-btn:active{transform:translateY(1px);}
+#welcome-tip{margin-top:14px;font-family:'Cinzel',serif;font-size:7px;color:rgba(160,130,70,0.42);letter-spacing:1.5px;text-transform:uppercase;animation:fi 1.6s 1.3s both;}
+ 
+/* Vignette & flash */
+#vignette{position:fixed;top:0;left:0;width:100%;height:100%;
+  background:radial-gradient(ellipse at center,transparent 36%,rgba(0,0,0,0.62) 100%);
+  pointer-events:none;z-index:16;}
+#flash{position:fixed;top:0;left:0;width:100%;height:100%;background:#000;opacity:0;pointer-events:none;z-index:90;transition:opacity 0.4s;}
+ 
+/* Tour completo */
+#tour-done{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+  background:rgba(8,5,2,0.97);border:1px solid rgba(180,140,60,0.65);border-radius:5px;
+  padding:22px 30px;text-align:center;z-index:50;pointer-events:none;
+  opacity:0;transition:opacity 0.6s;backdrop-filter:blur(12px);box-shadow:0 20px 60px rgba(0,0,0,0.9);}
+#tour-done.show{opacity:1;}
+#tour-done h3{font-family:'IM Fell English',Georgia,serif;font-size:17px;color:#f0d080;font-style:italic;margin-bottom:6px;}
+#tour-done p{font-family:'Cinzel',serif;font-size:8px;color:rgba(200,160,60,0.65);letter-spacing:2px;text-transform:uppercase;}
+</style>
+</head>
+<body>
+ 
+<div id="welcome">
+  <canvas id="welcome-bg"></canvas>
+  <div id="welcome-box">
+    <div class="ctr tr"></div><div class="ctr bl"></div>
+    <span id="welcome-icon">🏛️</span>
+    <div id="welcome-sub">Galería Privada · 20 Obras</div>
+    <h1>Museo de<br>Beca &amp; Jaretcito</h1>
+    <div id="welcome-div"></div>
+    <p class="desc">Un recorrido íntimo por los momentos que hemos vivido juntos.</p>
+    <div class="tip-box">
+      <p>📱 <b>Móvil:</b> Joystick para avanzar · Arrastra la pantalla para girar<br>
+         💻 <b>Desktop:</b> Flechas del teclado para moverte<br>
+         🗺 Abre el mapa · Sigue las señales doradas en los pasillos</p>
+    </div>
+    <button id="enter-btn" onclick="enterMuseum()">✦ &nbsp;Entrar al Museo&nbsp; ✦</button>
+    <p id="welcome-tip">Visita las 20 obras para completar el recorrido</p>
+  </div>
+</div>
+ 
+<div id="vignette"></div>
+<div id="flash"></div>
+<canvas id="c"></canvas>
+<div id="crosshair"></div>
+<div id="tour-done"><h3>¡Recorrido completo! 🎉</h3><p>Visitaste las 20 obras del museo</p></div>
+ 
+<div id="hud">
+  <div class="hud-pill">🏛 Museo</div>
+  <div id="counter">Obras: <span id="cnt-num">0</span> / 20</div>
+  <div id="compass"><div id="compass-arrow"></div></div>
+</div>
+ 
+<div id="minimap-wrap">
+  <div id="minimap-toggle" onclick="toggleMap()">🗺 Mapa</div>
+  <div id="minimap">
+    <canvas id="minimap-canvas" width="160" height="160"></canvas>
+    <div id="map-legend">
+      <div class="leg-item"><div class="leg-dot" style="background:#f5e060;border-radius:50%;"></div><div class="leg-txt">Tú</div></div>
+      <div class="leg-item"><div class="leg-dot" style="background:rgba(220,165,45,0.9);"></div><div class="leg-txt">Obra</div></div>
+      <div class="leg-item"><div class="leg-dot" style="background:rgba(60,200,70,0.9);"></div><div class="leg-txt">Visitada ✓</div></div>
+      <div class="leg-item"><div class="leg-dot" style="background:rgba(90,130,230,0.7);"></div><div class="leg-txt">Ruta</div></div>
+    </div>
+  </div>
+</div>
+ 
+<div id="room-banner"><div id="rbi"><span id="rb-txt">Sala</span><small id="rb-sub">Bienvenido</small></div></div>
+ 
+<div id="label">
+  <div id="lbl-num-tag">Obra #<span id="lbl-num">1</span></div>
+  <div id="lbl-title">Título</div>
+  <div id="lbl-date">📅 <span id="lbl-date-txt"></span></div>
+  <div id="lbl-author">✒️ <span id="lbl-author-txt"></span></div>
+</div>
+ 
+<div id="next-arrow"><div id="na-icon">↑</div><div id="na-dist">—</div></div>
+ 
+<div id="ctrls">
+  <div id="joy-wrap">
+    <div id="joy-zone"><div id="joy-ring"></div><div id="joy-knob"></div></div>
+    <div class="ctrl-label">Mover</div>
+  </div>
+  <div id="dpad-wrap">
+    <div class="dpad">
+      <div class="btn" id="b-u">▲</div>
+      <div class="btn" id="b-l">◀</div>
+      <div class="btn" id="b-d">▼</div>
+      <div class="btn" id="b-r">▶</div>
+    </div>
+    <div class="ctrl-label">Girar</div>
+  </div>
+  <div id="ctrl-info">
+    <p><b>↑↓</b> Avanzar</p>
+    <p><b>←→</b> Girar</p>
+    <p><b>🗺</b> Mapa</p>
+    <p><b>✦</b> 20 obras</p>
+  </div>
+</div>
+ 
+<script>
+/* ══════ MAPA ══════ */
+const MAP=[
+  [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+  [1,0,0,0,2,0,1,0,0,0,8,0,14,0,0,1],
+  [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+  [1,0,0,3,0,0,1,0,0,0,9,0,0,0,15,1],
+  [1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1],
+  [1,0,16,0,0,0,1,1,1,0,1,1,1,0,0,1],
+  [1,0,0,0,0,0,0,0,1,0,1,0,0,0,0,1],
+  [1,1,0,1,1,0,0,0,1,0,1,0,10,0,0,1],
+  [1,0,0,0,1,0,17,0,0,0,1,0,0,0,0,1],
+  [1,0,4,0,1,1,1,0,1,1,1,0,0,0,18,1],
+  [1,0,0,0,0,0,1,0,1,0,0,0,0,0,0,1],
+  [1,0,5,0,0,0,1,0,1,0,0,11,0,0,19,1],
+  [1,0,0,0,0,0,1,0,1,0,0,0,0,0,0,1],
+  [1,1,1,6,1,1,1,0,1,1,1,1,12,1,1,1],
+  [1,0,0,0,0,0,7,0,0,0,0,20,0,0,13,1],
+  [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+];
+const MAP_SIZE=16;
+ 
+/* Posición de cada cuadro */
+const PP=[
+  {x:4,y:1},  // 1 - MAP[1][4]=2
+  {x:3,y:3},  // 2 - MAP[3][3]=3
+  {x:2,y:9},  // 3 - MAP[9][2]=4
+  {x:2,y:11}, // 4 - MAP[11][2]=5
+  {x:3,y:13}, // 5 - MAP[13][3]=6
+  {x:6,y:14}, // 6 - MAP[14][6]=7
+  {x:10,y:1}, // 7 - MAP[1][10]=8
+  {x:10,y:3}, // 8 - MAP[3][10]=9
+  {x:11,y:7}, // 9 - MAP[7][11]=10
+  {x:11,y:11},// 10 - MAP[11][11]=11
+  {x:12,y:13},// 11 - MAP[13][12]=12
+  {x:14,y:14},// 12 - MAP[14][14]=13
+  {x:12,y:1}, // 13 - MAP[1][12]=14
+  {x:14,y:3}, // 14 - MAP[3][14]=15
+  {x:2,y:5},  // 15 - MAP[5][2]=16
+  {x:6,y:8},  // 16 - MAP[8][6]=17
+  {x:14,y:9}, // 17 - MAP[9][14]=18
+  {x:14,y:11},// 18 - MAP[11][14]=19
+  {x:11,y:14},// 19 - MAP[14][11]=20
+  {x:11,y:14},// 20
+];
+ 
+/* Ruta sugerida */
+const PATH=new Set([
+  '1,14','2,14','3,14','4,14','5,14','6,14',
+  '1,13','1,12','1,11','1,10','1,9','1,8','1,7','1,6','1,5','1,4','1,3','1,2','1,1',
+  '2,1','3,1','4,1','5,1','2,2','3,2','4,2','5,2','6,2','2,3','3,3','4,3','5,3',
+  '7,14','7,13','7,12','7,11','7,10','7,9','7,8',
+  '6,8','5,8','6,6','6,7','6,5','6,4','6,3',
+  '8,14','9,14','10,14','11,14','12,14','13,14',
+  '14,14','14,13','14,12','14,11','14,10','14,9','14,8',
+  '14,7','14,6','14,5','14,4','14,3','14,2','14,1',
+  '13,1','12,1','11,1','10,1','9,1','8,1',
+  '8,2','9,2','10,2','11,2','12,2','13,2',
+  '8,3','9,3','10,3','11,3','12,3',
+  '11,4','11,5','11,6',
+  '12,6','12,7','12,8','12,9','12,10','12,11','12,12',
+  '13,7','13,8','13,9','13,10','13,11','13,12','13,13',
+  '10,6','10,7','10,8','10,9','10,10','10,11','10,12',
+  '9,6','9,5','9,4','9,3',
+  '8,8','9,8','8,9','8,10','8,11','8,12','8,13',
+]);
+ 
+/* Salas */
+const ROOMS=[
+  {name:'Sala de Entrada',  sub:'Por donde todo empezó',         xMin:0, xMax:7,  yMin:13,yMax:16},
+  {name:'Ala Oeste',        sub:'Recuerdos del lado izquierdo',  xMin:0, xMax:6,  yMin:0, yMax:13},
+  {name:'Galería Central',  sub:'El corazón del museo',          xMin:6, xMax:10, yMin:5, yMax:14},
+  {name:'Gran Corredor',    sub:'El camino que nos une',         xMin:7, xMax:10, yMin:0, yMax:5 },
+  {name:'Ala Este',         sub:'Hacia nuevos horizontes',       xMin:10,xMax:16, yMin:0, yMax:14},
+];
+ 
+/* ── LISTA DE PINTURAS (¡Cambiado a nombres sin extensión!) ── */
+const PAINT=[
+  {name:'Pintura_01', titulo:'Contigo siempre es primavera',        fecha:'18 de mayo de 2024',       autor:'Jaretcito y Beca'},
+  {name:'Pintura_02', titulo:'Un momentazo inolvidable',            fecha:'29 de junio 2025',          autor:'Enjambre'},
+  {name:'Pintura_03', titulo:'Amor y Futbol',                        fecha:'20 de julio 2025',          autor:'Pumas'},
+  {name:'Pintura_04', titulo:'Estoy contigo',                        fecha:'01 de agosto de 2025',     autor:'The Coffee'},
+  {name:'Pintura_05', titulo:'Todo el tiempo estoy pensando en ti',  fecha:'29 de septiembre de 2025', autor:'ZOE'},
+  {name:'Pintura_06', titulo:'Conjunto Perfecto',                    fecha:'03 de octubre de 2025',    autor:'USH'},
+  {name:'Pintura_07', titulo:'Recuerdos del Corazón',               fecha:'22 de noviembre de 2025',  autor:'Chapultepec'},
+  {name:'Pintura_08', titulo:'Atardeceres Bonitos',                  fecha:'29 de diciembre de 2025',  autor:'Six Flags'},
+  {name:'Pintura_09', titulo:'Huellitas Bonitas',                    fecha:'02 de enero 2026',         autor:'Jaretcito y Beca'},
+  {name:'Pintura_10', titulo:'Sol y Arena',                          fecha:'21 de febrero de 2026',    autor:'Jaretcito y Beca'},
+  {name:'Pintura_11', titulo:'Un paso más a la meta',               fecha:'07 de marzo de 2026',      autor:'CU'},
+  {name:'Pintura_12', titulo:'Mi persona favorita eres tú',         fecha:'20 de abril de 2026',      autor:'Jaretcito y Beca'},
+  
+  // Modifica los títulos y fechas de tus 8 nuevas obras aquí abajo:
+  {name:'Pintura_13', titulo:'Cumple Beca',                     fecha:'10 de septiembre de 2025',                 autor:'Jaretcito'},
+  {name:'Pintura_14', titulo:'Skinny Flakk',                     fecha:'09 de septiembre de 2025',                 autor:'Jaretcito y Beca'},
+  {name:'Pintura_15', titulo:'Que la Fuerza este con nosotros',                     fecha:'02 de noviembre de 2025',                 autor:'ST'},
+  {name:'Pintura_16', titulo:'Aquel Nap ZzZz',                     fecha:'09 de noviembre de  2025',                 autor:'Raw Alejandro'},
+  {name:'Pintura_17', titulo:'Aguita y Patitos',                     fecha:'22 de noviembre de 2025',                 autor:'Jaretcito y Beca'},
+  {name:'Pintura_18', titulo:'Casitas de Jengibre',                     fecha:'30 de noviembre de 2025',                 autor:'Jaretcito y Beca'},
+  {name:'Pintura_19', titulo:'Love Project',                     fecha:'28 de diciembre de 2025',                 autor:'Besos sabor Cafecito'},
+  {name:'Pintura_20', titulo:'Feliz Año Nuevo',                     fecha:'01 de enero de 2026',                 autor:'Jaretcito y Beca'}
+];
+ 
+/* ── ESTADO ── */
+const canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
+let ww=window.innerWidth,wh=window.innerHeight;
+canvas.width=ww;canvas.height=wh;
+window.addEventListener('resize',()=>{ww=window.innerWidth;wh=window.innerHeight;canvas.width=ww;canvas.height=wh;});
+ 
+const player={x:3.5,y:14.5,angle:-Math.PI/2};
+const SPEED=0.042,ROT=0.033,FOV=Math.PI/3;
+const keys={},visited=new Set();
+ 
+/* ══════════════════════════════════════════
+   LÓGICA HÍBRIDA DE CARGA INTELIGENTE (.png / .jpg)
+   ══════════════════════════════════════════ */
+const IMGS={};
+PAINT.forEach((p,i)=>{
+  const im=new Image();
+  // Intenta primero cargar como .png
+  im.src = p.name + ".png";
+  
+  // Si falla el .png, el código automáticamente cambia a buscar un .jpg
+  im.onerror = () => {
+    if (im.src.endsWith(".png")) {
+      im.src = p.name + ".jpg";
+    }
+  };
+  IMGS[i+2]=im;
+});
+ 
+/* ── TECLADO ── */
+window.addEventListener('keydown',e=>{keys[e.key]=true;if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key))e.preventDefault();});
+window.addEventListener('keyup',e=>{keys[e.key]=false;});
+ 
+/* ── D-PAD ── */
+function setupBtn(id,k){
+  const el=document.getElementById(id);
+  const on=()=>{el.classList.add('pressed');keys[k]=true;};
+  const off=()=>{el.classList.remove('pressed');keys[k]=false;};
+  el.addEventListener('touchstart',e=>{e.preventDefault();on();},{passive:false});
+  el.addEventListener('touchend',  e=>{e.preventDefault();off();},{passive:false});
+  el.addEventListener('touchcancel',e=>{e.preventDefault();off();},{passive:false});
+  el.addEventListener('mousedown',on);el.addEventListener('mouseup',off);el.addEventListener('mouseleave',off);
+}
+setupBtn('b-u','w');setupBtn('b-d','s');setupBtn('b-l','a');setupBtn('b-r','d');
+ 
+/* ── JOYSTICK ── */
+const jZ=document.getElementById('joy-zone'),jK=document.getElementById('joy-knob');
+let jA=false,jTid=null,jOx=0,jOy=0;const JR=36;
+function jStart(cx,cy){jA=true;const r=jZ.getBoundingClientRect();jOx=r.left+r.width/2;jOy=r.top+r.height/2;jMove(cx,cy);}
+function jMove(cx,cy){if(!jA)return;const dx=cx-jOx,dy=cy-jOy,dist=Math.min(Math.hypot(dx,dy),JR),ang=Math.atan2(dy,dx);jK.style.transform=`translate(calc(-50% + ${Math.cos(ang)*dist}px),calc(-50% + ${Math.sin(ang)*dist}px))`;keys._jx=dx/JR;keys._jy=dy/JR;}
+function jEnd(){jA=false;jTid=null;jK.style.transform='translate(-50%,-50%)';keys._jx=0;keys._jy=0;}
+jZ.addEventListener('touchstart',e=>{e.preventDefault();const t=e.changedTouches[0];jTid=t.identifier;jStart(t.clientX,t.clientY);},{passive:false});
+jZ.addEventListener('touchmove',e=>{e.preventDefault();for(const t of e.changedTouches)if(t.identifier===jTid){jMove(t.clientX,t.clientY);break;}},{passive:false});
+jZ.addEventListener('touchend',e=>{e.preventDefault();jEnd();},{passive:false});
+jZ.addEventListener('touchcancel',()=>jEnd());
+ 
+/* Swipe para girar */
+let swX=null,swY=null,swId=null;
+canvas.addEventListener('touchstart',e=>{if(jA)return;const t=e.changedTouches[0];swX=t.clientX;swY=t.clientY;swId=t.identifier;},{passive:true});
+canvas.addEventListener('touchmove',e=>{if(swX===null)return;for(const t of e.changedTouches)if(t.identifier===swId){player.angle+=(t.clientX-swX)*0.0032;swX=t.clientX;swY=t.clientY;break;}},{passive:true});
+canvas.addEventListener('touchend',()=>{swX=null;swId=null;},{passive:true});
+ 
+/* ── MOVIMIENTO ── */
+function isBlocked(x,y){if(x<0||x>=MAP_SIZE||y<0||y>=MAP_SIZE)return true;return MAP[Math.floor(y)][Math.floor(x)]===1;}
+function updatePlayer(){
+  if(keys['a']||keys['ArrowLeft'])  player.angle-=ROT;
+  if(keys['d']||keys['ArrowRight']) player.angle+=ROT;
+  const kMv=(keys['w']||keys['ArrowUp']?SPEED:0)-(keys['s']||keys['ArrowDown']?SPEED:0);
+  const jx=keys._jx||0,jy=keys._jy||0,jMag=Math.hypot(jx,jy);
+  if(jMag>0.12)player.angle+=jx*ROT*1.5;
+  const mv=kMv+(jMag>0.12?-jy*SPEED*1.2:0);
+  if(mv!==0){const nx=player.x+Math.cos(player.angle)*mv,ny=player.y+Math.sin(player.angle)*mv;if(!isBlocked(nx,player.y))player.x=nx;if(!isBlocked(player.x,ny))player.y=ny;}
+}
+ 
+/* ── MINIMAPA ── */
+const mmC=document.getElementById('minimap-canvas'),mmX=mmC.getContext('2d');
+const MM=160,cpx=MM/MAP_SIZE;
+let mapVisible=true;
+function toggleMap(){mapVisible=!mapVisible;document.getElementById('minimap').classList.toggle('hidden',!mapVisible);}
+ 
+function drawMinimap(){
+  mmX.fillStyle='rgba(4,2,1,1)';mmX.fillRect(0,0,MM,MM);
+ 
+  for(let y=0;y<MAP_SIZE;y++){
+    for(let x=0;x<MAP_SIZE;x++){
+      const cell=MAP[y][x],px=x*cpx,py=y*cpx;
+      if(cell===1){
+        mmX.fillStyle='rgba(82,58,22,1)';mmX.fillRect(px,py,cpx,cpx);
+        mmX.fillStyle='rgba(50,34,11,0.55)';
+        mmX.fillRect(px+.5,py+.5,cpx-1,1);
+        mmX.fillRect(px+.5,py+cpx*.5,cpx-1,.8);
+        mmX.fillStyle='rgba(110,80,30,0.3)';
+        mmX.fillRect(px,py,cpx,.8);
+      } else {
+        const isP=PATH.has(`${x},${y}`);
+        mmX.fillStyle=isP?'rgba(65,100,200,0.26)':'rgba(16,11,6,0.95)';
+        mmX.fillRect(px,py,cpx,cpx);
+ 
+        if(cell>1){
+          const idx=cell-2,vis=visited.has(idx);
+          mmX.fillStyle=vis?'rgba(40,180,55,0.18)':'rgba(215,160,35,0.18)';
+          mmX.fillRect(px-1,py-1,cpx+2,cpx+2);
+          mmX.fillStyle=vis?'rgba(35,165,48,0.88)':'rgba(210,155,32,0.9)';
+          mmX.beginPath();mmX.roundRect(px+1,py+1,cpx-2,cpx-2,2);mmX.fill();
+          mmX.strokeStyle=vis?'rgba(80,255,100,0.85)':'rgba(255,215,60,0.9)';
+          mmX.lineWidth=1.2;
+          mmX.beginPath();mmX.roundRect(px+1.5,py+1.5,cpx-3,cpx-3,2);mmX.stroke();
+          const fs=Math.max(6,cpx*.62);
+          mmX.fillStyle=vis?'rgba(210,255,210,1)':'rgba(22,14,3,1)';
+          mmX.font=`bold ${fs}px monospace`;
+          mmX.textAlign='center';mmX.textBaseline='middle';
+          mmX.fillText(idx+1,px+cpx/2,py+cpx/2);
+          if(vis){
+            mmX.fillStyle='rgba(255,255,255,0.95)';
+            mmX.font=`${Math.max(5,cpx*.38)}px sans-serif`;
+            mmX.textAlign='right';mmX.textBaseline='top';
+            mmX.fillText('✓',px+cpx-1.5,py+1.5);
+          }
+        }
+      }
+    }
+  }
+ 
+  mmX.font=`${Math.max(5,cpx*.5)}px sans-serif`;
+  mmX.textAlign='center';mmX.textBaseline='middle';
+  PATH.forEach(key=>{
+    const [x,y]=key.split(',').map(Number);
+    if(!MAP[y]||MAP[y][x]!==0)return;
+    const cx=x*cpx+cpx/2,cy=y*cpx+cpx/2;
+    const hasE=PATH.has(`${x+1},${y}`)&&MAP[y]&&MAP[y][x+1]===0;
+    const hasS=PATH.has(`${x},${y+1}`)&&MAP[y+1]&&MAP[y+1][x]===0;
+    mmX.fillStyle='rgba(120,165,255,0.55)';
+    if(hasE)mmX.fillText('›',cx+cpx*.36,cy);
+    if(hasS)mmX.fillText('↓',cx,cy+cpx*.36);
+  });
+ 
+  mmX.strokeStyle='rgba(48,33,14,0.38)';mmX.lineWidth=0.3;
+  for(let i=0;i<=MAP_SIZE;i++){
+    mmX.beginPath();mmX.moveTo(i*cpx,0);mmX.lineTo(i*cpx,MM);mmX.stroke();
+    mmX.beginPath();mmX.moveTo(0,i*cpx);mmX.lineTo(MM,i*cpx);mmX.stroke();
+  }
+ 
+  const ppx=player.x*cpx,ppy=player.y*cpx;
+  mmX.save();mmX.translate(ppx,ppy);mmX.rotate(player.angle);
+  const cg=mmX.createLinearGradient(0,0,24,0);
+  cg.addColorStop(0,'rgba(240,215,100,0.44)');cg.addColorStop(1,'rgba(240,215,100,0)');
+  mmX.beginPath();mmX.moveTo(0,0);mmX.arc(0,0,24,-FOV/2,FOV/2);mmX.closePath();
+  mmX.fillStyle=cg;mmX.fill();mmX.restore();
+ 
+  mmX.beginPath();mmX.arc(ppx,ppy,3.5,0,Math.PI*2);
+  mmX.fillStyle='#f5e060';mmX.fill();
+  mmX.strokeStyle='rgba(255,255,255,0.92)';mmX.lineWidth=1;mmX.stroke();
+  mmX.save();mmX.translate(ppx,ppy);mmX.rotate(player.angle);
+  mmX.fillStyle='rgba(255,255,200,0.92)';
+  mmX.beginPath();mmX.moveTo(6.5,0);mmX.lineTo(3.5,-2.5);mmX.lineTo(3.5,2.5);mmX.closePath();mmX.fill();
+  mmX.restore();
+}
+ 
+/* ── BRÚJULA ── */
+function updateCompass(){document.getElementById('compass-arrow').style.transform=`rotate(${(player.angle*180/Math.PI)+90}deg)`;}
+ 
+/* ── BANNER DE SALA ── */
+let lastRoom='',roomTimer=null;
+function updateRoomBanner(){
+  let found=null;
+  for(const z of ROOMS)if(player.x>=z.xMin&&player.x<z.xMax&&player.y>=z.yMin&&player.y<z.yMax){found=z;break;}
+  const name=found?found.name:'Pasillo',sub=found?found.sub:'Sigue explorando';
+  if(name!==lastRoom){
+    lastRoom=name;
+    document.getElementById('rb-txt').textContent=name;
+    document.getElementById('rb-sub').textContent=sub;
+    const b=document.getElementById('room-banner');
+    b.classList.add('show');clearTimeout(roomTimer);
+    roomTimer=setTimeout(()=>b.classList.remove('show'),2800);
+  }
+}
+ 
+/* ── FLECHA PRÓXIMO CUADRO ── */
+const ARR=['↑','↗','→','↘','↓','↙','←','↖'];
+function updateNextArrow(){
+  const el=document.getElementById('next-arrow');
+  if(visited.size>=20){el.classList.remove('show');return;}
+  let best=null,bestD=Infinity;
+  PP.forEach((pos,i)=>{if(!visited.has(i)){const dx=pos.x+.5-player.x,dy=pos.y+.5-player.y,d=Math.hypot(dx,dy);if(d<bestD){bestD=d;best={dx,dy,d,i};}}});
+  if(!best){el.classList.remove('show');return;}
+  let rel=Math.atan2(best.dy,best.dx)-player.angle;
+  while(rel>Math.PI)rel-=2*Math.PI;while(rel<-Math.PI)rel+=2*Math.PI;
+  const idx=Math.round(((rel*180/Math.PI)%360+360)%360/45)%8;
+  document.getElementById('na-icon').textContent=ARR[idx];
+  document.getElementById('na-dist').textContent=`#${best.i+1}`;
+  el.classList.add('show');
+}
+ 
+/* ── SEÑALAMIENTOS 3D ── */
+function drawSigns3D(){
+  PP.forEach((pos,i)=>{
+    const wx=pos.x+0.5,wy=pos.y+0.5;
+    const dx=wx-player.x,dy=wy-player.y,dist=Math.hypot(dx,dy);
+    if(dist>10||dist<0.35)return;
+    let rel=Math.atan2(dy,dx)-player.angle;
+    while(rel>Math.PI)rel-=2*Math.PI;while(rel<-Math.PI)rel+=2*Math.PI;
+    if(Math.abs(rel)>FOV/1.55)return;
+    const sx=(0.5+rel/FOV)*ww;
+    const wallH=Math.min(wh,wh/dist);
+    const sy=(wh-wallH)/2-38-Math.max(0,(2.5-dist)*12);
+    if(sy<8||sy>wh*0.66)return;
+ 
+    const alpha=Math.max(0,Math.min(0.97,1.2-dist/8.5));
+    const scale=Math.max(0.48,1.18-dist*0.075);
+    const vis=visited.has(i);
+ 
+    ctx.save();
+    ctx.globalAlpha=alpha;
+    ctx.translate(sx,sy);
+    ctx.scale(scale,scale);
+ 
+    ctx.beginPath();
+    const poleGrd=ctx.createLinearGradient(0,18,0,38);
+    poleGrd.addColorStop(0,vis?'rgba(60,170,65,0.65)':'rgba(190,148,44,0.65)');
+    poleGrd.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=poleGrd;
+    ctx.fillRect(-1.5,18,3,20);
+ 
+    const W=86,H=40;
+    ctx.shadowColor='rgba(0,0,0,0.85)';ctx.shadowBlur=10;ctx.shadowOffsetY=4;
+    ctx.fillStyle=vis?'rgba(18,62,22,0.97)':'rgba(12,8,3,0.97)';
+    ctx.beginPath();ctx.roundRect(-W/2,-H/2,W,H,6);ctx.fill();
+    ctx.shadowBlur=0;ctx.shadowOffsetY=0;
+ 
+    ctx.strokeStyle=vis?'rgba(70,230,80,0.82)':'rgba(220,175,45,0.9)';ctx.lineWidth=1.3;
+    ctx.beginPath();ctx.roundRect(-W/2,-H/2,W,H,6);ctx.stroke();
+ 
+    ctx.fillStyle=vis?'rgba(70,230,80,0.5)':'rgba(220,175,45,0.5)';
+    ctx.fillRect(-W/2+5,-H/2+2.5,W-10,1.2);
+ 
+    ctx.textAlign='left';ctx.textBaseline='middle';
+    ctx.font='11px sans-serif';
+    ctx.fillStyle=vis?'#7dff8a':'#f5d030';
+    ctx.fillText(vis?'✓':'🖼',(-W/2)+5,-8);
+ 
+    ctx.font=`bold 13px "Cinzel",monospace`;
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(`Obra #${i+1}`,8,-8);
+ 
+    const short=PAINT[i].titulo.length>22?PAINT[i].titulo.substring(0,20)+'…':PAINT[i].titulo;
+    ctx.fillStyle=vis?'rgba(175,255,178,0.92)':'rgba(225,195,118,0.92)';
+    ctx.font='7px Georgia,serif';
+    ctx.textAlign='center';
+    ctx.fillText(short,0,7);
+ 
+    if(!vis){
+      ctx.fillStyle='rgba(180,138,42,0.6)';
+      ctx.font='6px "Cinzel",monospace';
+      ctx.textAlign='right';
+      ctx.fillText(`${dist.toFixed(1)}m`,W/2-5,7);
+    }
+ 
+    ctx.fillStyle=vis?'rgba(70,230,80,0.75)':'rgba(225,175,42,0.75)';
+    ctx.font='9px sans-serif';ctx.textAlign='center';
+    ctx.fillText('▼',0,H/2+5);
+ 
+    ctx.restore();
+  });
+}
+ 
+/* ── RENDER RAYCASTING ── */
+let tourDone=false;
+function render(){
+  const sg=ctx.createLinearGradient(0,0,0,wh/2);
+  sg.addColorStop(0,'#100c08');sg.addColorStop(1,'#1a1207');
+  ctx.fillStyle=sg;ctx.fillRect(0,0,ww,wh/2);
+  const fg=ctx.createLinearGradient(0,wh/2,0,wh);
+  fg.addColorStop(0,'#0e0a06');fg.addColorStop(1,'#040201');
+  ctx.fillStyle=fg;ctx.fillRect(0,wh/2,ww,wh);
+ 
+  let closest=null,minD=1.95;
+  const nr=Math.ceil(ww/2),rs=FOV/nr;
+ 
+  for(let i=0;i<nr;i++){
+    const ra=player.angle-(FOV/2)+(i*rs);
+    let dist=0,hit=0,hx=0,hy=0;
+    const cos=Math.cos(ra),sin=Math.sin(ra);
+    while(dist<22){
+      dist+=0.018;
+      const cx=player.x+cos*dist,cy=player.y+sin*dist;
+      const mx=Math.floor(cx),my=Math.floor(cy);
+      if(mx<0||mx>=MAP_SIZE||my<0||my>=MAP_SIZE){hit=1;break;}
+      const c=MAP[my][mx];
+      if(c>0){hit=c;hx=cx;hy=cy;break;}
+    }
+    const corr=dist*Math.cos(ra-player.angle);
+    const wH=Math.min(wh,wh/corr),topY=(wh-wH)/2,sx=i*2;
+ 
+    if(hit===1){
+      const br=Math.max(14,195-corr*13);
+      ctx.fillStyle=`rgb(${Math.floor(br*.72)},${Math.floor(br*.55)},${Math.floor(br*.39)})`;
+      ctx.fillRect(sx,topY,2,wH);
+      if(wH>16){const d=Math.floor(br*.46);ctx.fillStyle=`rgba(${d},${Math.floor(d*.73)},${Math.floor(d*.52)},.85)`;ctx.fillRect(sx,topY+wH*.87,2,wH*.13);}
+    } else if(hit>1){
+      const idx=hit-2;
+      if(corr<minD){minD=corr;closest={...PAINT[idx],idx};
+        if(!visited.has(idx)){visited.add(idx);document.getElementById('cnt-num').textContent=visited.size;
+          if(visited.size===20&&!tourDone){tourDone=true;const td=document.getElementById('tour-done');td.classList.add('show');setTimeout(()=>td.classList.remove('show'),4500);}
+        }
+      }
+      const img=IMGS[hit];
+      if(img&&img.complete&&img.naturalWidth!==0){
+        const bX=hx-Math.floor(hx),bY=hy-Math.floor(hy),tX=(bY<.05||bY>.95)?bX:bY;
+        const fb=Math.max(22,170-corr*9);
+        ctx.fillStyle=`rgb(${Math.floor(fb*.97)},${Math.floor(fb*.74)},${Math.floor(fb*.2)})`;
+        ctx.fillRect(sx-1,topY-3,4,wH+6);
+        ctx.drawImage(img,tX*img.width,0,1,img.height,sx,topY,2,wH);
+        ctx.fillStyle=`rgba(8,4,0,${Math.min(.66,corr/5)})`;
+        ctx.fillRect(sx,topY,2,wH);
+        if(corr<3){const sp=ctx.createLinearGradient(sx,topY-24,sx,topY);sp.addColorStop(0,'rgba(255,215,88,0)');sp.addColorStop(1,`rgba(255,215,88,${(3-corr)*.09})`);ctx.fillStyle=sp;ctx.fillRect(sx,topY-24,2,24);}
+      } else {ctx.fillStyle='#7a5a20';ctx.fillRect(sx,topY,2,wH);}
+    }
+  }
+ 
+  ctx.fillStyle='rgba(180,140,60,0.04)';ctx.fillRect(0,wh/2-1,ww,2);
+  drawSigns3D();
+ 
+  const lbl=document.getElementById('label');
+  if(closest){
+    document.getElementById('lbl-num').textContent=closest.idx+1;
+    document.getElementById('lbl-title').textContent=closest.titulo;
+    document.getElementById('lbl-date-txt').textContent=closest.fecha;
+    document.getElementById('lbl-author-txt').textContent=closest.autor;
+    lbl.classList.add('show');
+  } else {lbl.classList.remove('show');}
+}
+ 
+/* ── LOOP ── */
+function loop(){updatePlayer();updateCompass();drawMinimap();updateRoomBanner();updateNextArrow();render();requestAnimationFrame(loop);}
+ 
+/* ── PARTÍCULAS BIENVENIDA ── */
+function startBg(){
+  const pc=document.getElementById('welcome-bg');pc.width=window.innerWidth;pc.height=window.innerHeight;
+  const pctx=pc.getContext('2d');
+  const pts=Array.from({length:55},()=>({x:Math.random()*pc.width,y:pc.height+Math.random()*pc.height,s:.18+Math.random()*.44,r:Math.random()*1.3+.3,o:Math.random()*.42+.1}));
+  let run=true;
+  (function a(){if(!run)return;pctx.clearRect(0,0,pc.width,pc.height);pts.forEach(p=>{p.y-=p.s;if(p.y<-5){p.y=pc.height+5;p.x=Math.random()*pc.width;}pctx.beginPath();pctx.arc(p.x,p.y,p.r,0,Math.PI*2);pctx.fillStyle=`rgba(220,190,100,${p.o})`;pctx.fill();});requestAnimationFrame(a);})();
+  return()=>{run=false;};
+}
+let stopBg=null;
+window.addEventListener('load',()=>{stopBg=startBg();});
+ 
+/* ── ENTRADA ── */
+function enterMuseum(){
+  const fl=document.getElementById('flash');fl.style.opacity='1';
+  setTimeout(()=>{
+    document.getElementById('welcome').style.opacity='0';
+    fl.style.transition='opacity 0.45s';fl.style.opacity='0';
+    if(stopBg)stopBg();
+    setTimeout(()=>{document.getElementById('welcome').style.display='none';loop();},480);
+  },260);
+}
+</script>
+</body>
+</html>
