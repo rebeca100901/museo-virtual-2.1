@@ -577,12 +577,25 @@ function updateNextArrow(){
   el.classList.add('show');
 }
  
-/* ── SEÑALAMIENTOS 3D ── */
+/* ── SEÑALAMIENTOS 3D (Línea de Visión Agregada) ── */
 function drawSigns3D(){
   PP.forEach((pos,i)=>{
     const wx=pos.x+0.5,wy=pos.y+0.5;
     const dx=wx-player.x,dy=wy-player.y,dist=Math.hypot(dx,dy);
-    if(dist>10||dist<0.35)return;
+    
+    // Distancia reducida para que solo se active al entrar al cuarto/pasillo
+    if(dist>5.5 || dist<0.35) return; 
+
+    // ¡NUEVO! Línea de visión (Line of Sight) para evitar ver a través de paredes
+    let los=true;
+    let steps=Math.floor(dist*4);
+    for(let s=1;s<steps;s++){
+      let cx=player.x+(dx/dist)*(s/4);
+      let cy=player.y+(dy/dist)*(s/4);
+      if(MAP[Math.floor(cy)] && MAP[Math.floor(cy)][Math.floor(cx)]===1){los=false;break;}
+    }
+    if(!los) return; // Si hay una pared entre el jugador y el cartel, lo oculta
+
     let rel=Math.atan2(dy,dx)-player.angle;
     while(rel>Math.PI)rel-=2*Math.PI;while(rel<-Math.PI)rel+=2*Math.PI;
     if(Math.abs(rel)>FOV/1.55)return;
@@ -649,7 +662,7 @@ function drawSigns3D(){
   });
 }
  
-/* ── RENDER RAYCASTING ── */
+/* ── RENDER RAYCASTING (Tinte corregido a negro puro) ── */
 let tourDone=false;
 function render(){
   const sg=ctx.createLinearGradient(0,0,0,wh/2);
@@ -696,8 +709,11 @@ function render(){
         ctx.fillStyle=`rgb(${Math.floor(fb*.97)},${Math.floor(fb*.74)},${Math.floor(fb*.2)})`;
         ctx.fillRect(sx-1,topY-3,4,wH+6);
         ctx.drawImage(img,tX*img.width,0,1,img.height,sx,topY,2,wH);
-        ctx.fillStyle=`rgba(8,4,0,${Math.min(.66,corr/5)})`;
+        
+        // ¡NUEVO! Sombra de oscurecimiento configurada a negro (0, 0, 0)
+        ctx.fillStyle=`rgba(0,0,0,${Math.min(.66,corr/5)})`;
         ctx.fillRect(sx,topY,2,wH);
+        
         if(corr<3){const sp=ctx.createLinearGradient(sx,topY-24,sx,topY);sp.addColorStop(0,'rgba(255,215,88,0)');sp.addColorStop(1,`rgba(255,215,88,${(3-corr)*.09})`);ctx.fillStyle=sp;ctx.fillRect(sx,topY-24,2,24);}
       } else {ctx.fillStyle='#7a5a20';ctx.fillRect(sx,topY,2,wH);}
     }
