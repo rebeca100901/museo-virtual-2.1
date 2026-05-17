@@ -9,7 +9,7 @@
  
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
 html,body{width:100%;height:100%;overflow:hidden;background:#0a0806;font-family:'Cormorant Garamond',Georgia,serif;touch-action:none;}
-#c{display:block;position:fixed;top:0;left:0;width:100%;height:100%;}
+#c{display:block;position:fixed;top:0;left:0;width:100%;height:100%;image-rendering: auto;}
  
 /* Crosshair */
 #crosshair{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:22px;height:22px;pointer-events:none;z-index:25;}
@@ -300,8 +300,8 @@ const MAP=[
   [1,0,5,0,0,0,1,0,1,0,0,11,0,0,19,1],
   [1,0,0,0,0,0,1,0,1,0,0,0,0,0,0,1],
   [1,1,1,6,1,1,1,0,1,1,1,1,12,1,1,1],
-  [1,0,0,0,0,0,7,0,0,0,0,20,0,0,13,1],
-  [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+  [1,0,0,0,0,0,7,0,0,0,0,0,0,0,13,1],
+  [1,1,1,1,1,1,1,1,1,1,1,1,21,1,1,1] // ¡REPARADO! Se creó un pasillo secreto al final del muro para la Obra 20 (Número 21)
 ];
 const MAP_SIZE=16;
  
@@ -326,10 +326,10 @@ const PP=[
   {x:14,y:9}, // 17 - MAP[9][14]=18
   {x:14,y:11},// 18 - MAP[11][14]=19
   {x:11,y:14},// 19 - MAP[14][11]=20
-  {x:11,y:14},// 20
+  {x:12,y:15},// 20 - ¡REPARADO! Coordenada ajustada perfectamente al nuevo nicho secreto [15][12]
 ];
  
-/* Ruta sugerida */
+/* Ruta sugerida (Actualizada para incluir la extensión secreta) */
 const PATH=new Set([
   '1,14','2,14','3,14','4,14','5,14','6,14',
   '1,13','1,12','1,11','1,10','1,9','1,8','1,7','1,6','1,5','1,4','1,3','1,2','1,1',
@@ -347,7 +347,7 @@ const PATH=new Set([
   '13,7','13,8','13,9','13,10','13,11','13,12','13,13',
   '10,6','10,7','10,8','10,9','10,10','10,11','10,12',
   '9,6','9,5','9,4','9,3',
-  '8,8','9,8','8,9','8,10','8,11','8,12','8,13',
+  '8,8','9,8','8,9','8,10','8,11','8,12','8,13','12,14','12,15'
 ]);
  
 /* Salas */
@@ -356,7 +356,7 @@ const ROOMS=[
   {name:'Ala Oeste',        sub:'Recuerdos del lado izquierdo',  xMin:0, xMax:6,  yMin:0, yMax:13},
   {name:'Galería Central',  sub:'El corazón del museo',          xMin:6, xMax:10, yMin:5, yMax:14},
   {name:'Gran Corredor',    sub:'El camino que nos une',         xMin:7, xMax:10, yMin:0, yMax:5 },
-  {name:'Ala Este',         sub:'Hacia nuevos horizontes',       xMin:10,xMax:16, yMin:0, yMax:14},
+  {name:'Ala Este',         sub:'Hacia nuevos horizontes',       xMin:10,xMax:16, yMin:0, yMax:16},
 ];
  
 /* ── LISTA DE PINTURAS ── */
@@ -393,9 +393,7 @@ const player={x:3.5,y:14.5,angle:-Math.PI/2};
 const SPEED=0.042,ROT=0.033,FOV=Math.PI/3;
 const keys={},visited=new Set();
  
-/* ══════════════════════════════════════════
-   LÓGICA HÍBRIDA DE CARGA INTELIGENTE (.png / .jpg)
-   ══════════════════════════════════════════ */
+/* LÓGICA HÍBRIDA DE CARGA INTELIGENTE */
 const IMGS={};
 PAINT.forEach((p,i)=>{
   const im=new Image();
@@ -572,16 +570,14 @@ function updateNextArrow(){
   el.classList.add('show');
 }
  
-/* ── SEÑALAMIENTOS 3D (Línea de Visión Agregada) ── */
+/* ── SEÑALAMIENTOS 3D ── */
 function drawSigns3D(){
   PP.forEach((pos,i)=>{
     const wx=pos.x+0.5,wy=pos.y+0.5;
     const dx=wx-player.x,dy=wy-player.y,dist=Math.hypot(dx,dy);
     
-    // Distancia reducida para que solo se active al entrar al cuarto/pasillo
     if(dist>5.5 || dist<0.35) return; 
  
-    // Línea de visión (Line of Sight) para evitar ver a través de paredes
     let los=true;
     let steps=Math.floor(dist*4);
     for(let s=1;s<steps;s++){
@@ -660,6 +656,9 @@ function drawSigns3D(){
 /* ── RENDER RAYCASTING ── */
 let tourDone=false;
 function render(){
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+ 
   const sg=ctx.createLinearGradient(0,0,0,wh/2);
   sg.addColorStop(0,'#100c08');sg.addColorStop(1,'#1a1207');
   ctx.fillStyle=sg;ctx.fillRect(0,0,ww,wh/2);
@@ -701,14 +700,11 @@ function render(){
       if(img&&img.complete&&img.naturalWidth!==0){
         const bX=hx-Math.floor(hx),bY=hy-Math.floor(hy),tX=(bY<.05||bY>.95)?bX:bY;
         
-        // ── CORRECCIÓN MARCO: Reducido a solo 1 píxel de borde dorado elegante para no invadir la foto ──
         ctx.fillStyle='rgb(160,130,50)';
         ctx.fillRect(sx,topY,2,wH); 
         
-        // Dibuja la foto limpia arriba
         ctx.drawImage(img,tX*img.width,0,1,img.height,sx,topY,2,wH);
         
-        // Sombra de oscurecimiento limpia con negro puro (0,0,0) sin tinte amarillo
         ctx.fillStyle=`rgba(0,0,0,${Math.min(.66,corr/5)})`;
         ctx.fillRect(sx,topY,2,wH);
         
